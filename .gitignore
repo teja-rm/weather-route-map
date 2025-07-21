@@ -1,0 +1,11 @@
+# Ignore environment loader script
+env-loader.js
+
+# Ignore flexpolyline library files in JS folder
+js/flexpolyline*.js
+
+# Ignore README
+README.md
+
+# Ignore example environment file
+.env.exmaple

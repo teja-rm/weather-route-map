@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Map Application</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Floating Search Panel (Google Maps style) -->
+        <div class="floating-panel" id="floating-panel">
+            <div class="panel-header">
+                <h1>Route Planner</h1>
+                <p class="panel-subtitle">Plan your journey with multiple transport options</p>
+                <button id="minimize-panel-btn" class="panel-minimize-btn" title="Minimize Panel" aria-label="Minimize Panel">&minus;</button>
+            </div>
+            <div class="panel-content">
+                <!-- Origin Input -->
+                <div class="form-group" style="position:relative;">
+                    <label class="form-label" for="origin-input">From</label>
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0; position: relative;">
+                        <div class="input-wrapper" style="width: 100%;">
+                            <input type="text" id="origin-input" class="form-control" placeholder="Enter origin address" style="padding-left:52px;">
+                            <span style="position:absolute;left:18px;top:50%;transform:translateY(-50%);font-size:1.3rem;color:rgba(59,130,246,0.7);">📍</span>
+                            <div id="origin-suggestions" class="suggestions-dropdown hidden"></div>
+                        </div>
+                        <button id="swap-btn" type="button" title="Swap origin and destination" style="margin: 10px 0 10px 0; background: #f3f6fa; border: 1.5px solid #bcd; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(31,38,135,0.10); cursor: pointer; transition: background 0.18s; position: relative; z-index: 2; font-size: 1.3rem;">
+                            <span style="display:inline-block;">⇅</span>
+                        </button>
+                        <div class="input-wrapper" style="width: 100%;">
+                            <input type="text" id="destination-input" class="form-control" placeholder="Enter destination address" style="padding-left:52px;">
+                            <span style="position:absolute;left:18px;top:50%;transform:translateY(-50%);font-size:1.3rem;color:rgba(239,68,68,0.7);">🏁</span>
+                            <div id="destination-suggestions" class="suggestions-dropdown hidden"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Destination Input -->
+                <!-- Destination input is now combined above with swap button for alignment and centering -->
+                <!-- Transport Mode Selection -->
+                <div class="form-group">
+                    <label class="form-label">Transport Mode</label>
+                    <div class="transport-modes" style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-bottom:8px;">
+                        <button class="transport-btn active" data-mode="car">
+                            <span class="transport-icon" style="font-size:2.4rem;">🚗</span>
+                            <span style="margin-top:6px;">Car</span>
+                        </button>
+                        <button class="transport-btn" data-mode="bicycle">
+                            <span class="transport-icon" style="font-size:2.4rem;">🚲</span>
+                            <span style="margin-top:6px;">Bicycle</span>
+                        </button>
+                        <button class="transport-btn" data-mode="pedestrian">
+                            <span class="transport-icon" style="font-size:2.4rem;">🚶</span>
+                            <span style="margin-top:6px;">Walk</span>
+                        </button>
+                        <button class="transport-btn" data-mode="publicTransport">
+                            <span class="transport-icon" style="font-size:2.4rem;">🚌</span>
+                            <span style="margin-top:6px;">Transit</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Route Type -->
+                <div class="form-group route-type-group">
+                    <label class="form-label" for="route-type">Route Type</label>
+                    <div style="position: relative;">
+                        <select id="route-type" class="form-control" style="background:rgba(255,255,255,0.9);color:#374151;cursor:pointer;font-weight:500;">
+                            <option value="fast">⚡ Fastest Route</option>
+                            <option value="short">📏 Shortest Route</option>
+                            <option value="balanced">⚖️ Balanced Route</option>
+                        </select>
+                        <div id="route-type-indicator" class="route-type-indicator" style="display: none;">
+                            3 options
+                        </div>
+                    </div>
+                </div>
+                <!-- Departure Time Selection -->
+                <div class="form-group departure-time-group">
+                    <label class="form-label" for="departure-time">Departure Time</label>
+                    <div class="departure-time-container">
+                        <div class="departure-option">
+                            <input type="radio" id="departure-now" name="departure-option" value="now" checked>
+                            <label for="departure-now" class="departure-radio-label">
+                                <span class="departure-icon" style="color:#222;">🕐</span>
+                                <span>Leave Now</span>
+                            </label>
+                        </div>
+                        <div class="departure-option">
+                            <input type="radio" id="departure-later" name="departure-option" value="later">
+                            <label for="departure-later" class="departure-radio-label">
+                                <span class="departure-icon" style="color:#222;">📅</span>
+                                <span>Leave Later</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="departure-datetime-container" class="departure-datetime-container" style="display: none;">
+                        <div class="datetime-input-group">
+                            <div class="datetime-input-wrapper">
+                                <label for="departure-date" class="datetime-label" style="color:#444;">Date</label>
+                                <input type="date" id="departure-date" class="form-control datetime-input" style="color:#444;">
+                            </div>
+                            <div class="datetime-input-wrapper">
+                                <label for="departure-time-input" class="datetime-label" style="color:#444;">Time</label>
+                                <input type="time" id="departure-time-input" class="form-control datetime-input" style="color:#444;">
+                            </div>
+                        </div>
+                        <div class="departure-time-info">
+                            <small id="departure-time-display" class="departure-time-display" style="color:#444;"></small>
+                        </div>
+                    </div>
+                </div>
+                <!-- Action Buttons -->
+                <div class="form-group">
+                    <button id="get-route-btn" class="btn btn--primary btn--full-width">
+                        <span style="color:#f3eeeef9;">🗺️ Get Route</span>
+                    </button>
+                    <button id="clear-route-btn" class="btn btn--secondary btn--full-width" style="margin-top:12px;">
+                        <span>🧹 Clear Route</span>
+                    </button>
+                </div>
+
+                <!-- Route Alternatives UI (hidden by default, shown only after route calculation) -->
+                <div id="route-alternatives" class="route-alternatives" style="display:none;justify-content:center;gap:12px;margin:18px 0 0 0;">
+                    <button class="route-alt-btn" data-route-idx="0" style="padding:10px 18px;border-radius:8px;border:1.5px solid #bcd;background:#f3f6fa;font-weight:600;cursor:pointer;transition:background 0.18s;">Route 1</button>
+                    <button class="route-alt-btn" data-route-idx="1" style="padding:10px 18px;border-radius:8px;border:1.5px solid #bcd;background:#f3f6fa;font-weight:600;cursor:pointer;transition:background 0.18s;">Route 2</button>
+                    <button class="route-alt-btn" data-route-idx="2" style="padding:10px 18px;border-radius:8px;border:1.5px solid #bcd;background:#f3f6fa;font-weight:600;cursor:pointer;transition:background 0.18s;">Route 3</button>
+                </div>
+                <!-- Route Information -->
+                <div id="route-info" class="route-info hidden">
+                    <h3 style="color:#222;font-weight:700;position:relative;z-index:2;">Route Details</h3>
+                    <div class="route-stats" style="position:relative;z-index:2;">
+                        <div class="stat">
+                            <span class="stat-label" style="color:#444;">Distance</span>
+                            <span id="route-distance" class="stat-value" style="color:#222;">--</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label" style="color:#444;">Duration</span>
+                            <span id="route-duration" class="stat-value" style="color:#222;">--</span>
+                        </div>
+                    </div>
+                    <div class="route-instructions" style="position:relative;z-index:2;">
+                        <div id="transit-instructions-container" style="display:none;">
+                            <h4 style="color:#444;">Turn-by-turn Directions</h4>
+                            <ol id="instructions-list" style="color:#222;"></ol>
+                        </div>
+                    </div>
+                </div>
+                <!-- Error Display -->
+                <div id="error-message" class="error-message hidden"></div>
+                <!-- Weather Integration -->
+                <div class="weather-placeholder">
+                    <h3 style="color:rgba(255,255,255,0.9);position:relative;z-index:2;">🌦️ Weather Along Route</h3>
+                    <p class="text-secondary" style="color:rgba(255,255,255,0.7);position:relative;z-index:2;">Calculate a route to see weather conditions along your journey</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Floating Action Button to restore panel (outside of panel) -->
+        <button id="restore-panel-fab" class="panel-restore-fab hidden" title="Show Route Planner" aria-label="Show Route Planner">
+            <span style="font-size:1.7rem;">🗺️</span>
+        </button>
+        
+        <!-- Map Container -->
+        <div class="map-container">
+            <!-- Map Style Controls -->
+            <!--
+                        <div class="map-style-controls">
+                            <button class="map-style-btn active" data-style="default">🗺️ Default</button>
+                            <button class="map-style-btn" data-style="satellite">🛰️ Satellite</button>
+                            <button class="map-style-btn" data-style="terrain">🏔️ Terrain</button>
+                        </div>
+            -->
+            
+            <div id="map" class="map"></div>
+            
+            <!-- Floating Action Buttons -->
+            <div class="floating-controls">
+                <!-- <button class="fab" id="current-location-btn" title="My Location">📍</button> -->
+                <button class="fab" id="fullscreen-btn" title="Fullscreen">⛶</button>
+                <!-- <button class="fab primary" id="quick-route-btn" title="Quick Route">🚀</button> -->
+            </div>
+            
+            <!-- Loading Overlay -->
+            <div id="loading-overlay" class="loading-overlay hidden">
+                <div class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <p style="margin-top:20px;color:#333;font-weight:600;">Finding the best route...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Scripts -->
+    <!-- Environment Variables for Local Development -->
+    <script src="env-loader.js"></script>
+    <!-- HERE Maps JS API -->
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.1/mapsjs-core.js"></script>
+    <script type="text/javascript" src="https://js.api.here.com/v3/3.1/mapsjs-service.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-util.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="env-loader.js"></script>
+    <script src="libs/flexpolyline.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/api-manager.js"></script>
+    <script src="js/map-manager.js"></script>
+    <script src="js/weather-manager.js"></script>
+    <script src="js/route-manager.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

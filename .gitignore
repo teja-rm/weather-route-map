@@ -4,8 +4,24 @@ env-loader.js
 # Ignore flexpolyline library files in JS folder
 js/flexpolyline*.js
 
-# Ignore README
-README.md
+# Environment variables (keep this secret!)
+.env
 
-# Ignore example environment file
-.env.exmaple
+# VS Code settings
+.vscode/
+
+# Netlify build folder
+.netlify/
+
+# Node modules
+node_modules/
+
+# Netlify config
+netlify.toml
+
+
+# Node modules
+node_modules/
+
+# Netlify
+.netlify/

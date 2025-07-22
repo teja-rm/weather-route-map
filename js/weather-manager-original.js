@@ -2,47 +2,29 @@
 
 class WeatherManager {
   constructor() {
-    // Determine if we're in development or production
-    this.isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
-    // Set base URL for API functions
-    this.FUNCTION_BASE_URL = this.isLocalDev 
-        ? 'http://localhost:8888/.netlify/functions'  // Netlify dev server
-        : '/.netlify/functions';  // Production Netlify
-    
+    this.apiKey = this.getEnvVariable('OPENWEATHER_API_KEY');
     this.cache = new Map();
-    this.cacheTTL = 5 * 60 * 1000; // 5 minutes
+    this.cacheTTL = 5 * 60 * 1000; // 10 minutes
   }
 
-  /**
-   * Call Netlify Function for OpenWeather API
-   */
-  async callOpenWeatherFunction(endpoint, queryParams) {
-    try {
-      const response = await fetch(`${this.FUNCTION_BASE_URL}/openweather-api`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ endpoint, queryParams })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`OpenWeather API error: ${errorData.error || response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('[WeatherManager] OpenWeather function error:', error);
-      throw error;
-    }
-  }
-
-  // Get environment variable (deprecated - now handled by backend)
+  // Get environment variable
   getEnvVariable(name) {
-    console.warn(`[WeatherManager] getEnvVariable called for ${name} - API keys are now handled by backend functions`);
-    return null;
+    // Check various places where env vars might be available
+    if (typeof process !== 'undefined' && process.env && process.env[name]) {
+      return process.env[name];
+    }
+    
+    // For browser environments using webpack DefinePlugin or similar
+    if (typeof window !== 'undefined' && window.ENV && window.ENV[name]) {
+      return window.ENV[name];
+    }
+    
+    // Check if it's available as a global variable
+    if (typeof window !== 'undefined' && window[name]) {
+      return window[name];
+    }
+    
+    throw new Error(`Environment variable ${name} is not defined. Please check your .env file or environment configuration.`);
   }
 
   // Get weather data for a single point at a specific time
@@ -58,17 +40,15 @@ class WeatherManager {
     //}
 
     try {
-      // Call OpenWeather API via Netlify Function
-      const json = await this.callOpenWeatherFunction('data/3.0/onecall', {
-        lat: lat,
-        lon: lng,
-        units: 'metric'
-      });
+      // Always fetch everything (current, minutely, hourly, daily)
+      const url = `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lng}&units=metric&appid=${this.apiKey}`;
+      const response = await fetch(url);
 
-      if (!json) {
-        throw new Error('No weather data received');
+      if (!response.ok) {
+        throw new Error(`Weather API error: ${response.status}`);
       }
 
+      const json = await response.json();
       const now = json.current.dt;
 
       // Use the appropriate function based on target time

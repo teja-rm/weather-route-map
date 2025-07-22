@@ -3,7 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Route Map Application</title>
+    <meta name="description" content="Route planning application with real-time weather integration for car, bicycle, and pedestrian transportation.">
+    <meta name="keywords" content="route planner, weather map, navigation, HERE maps, weather forecast">
+    <meta name="author" content="teja-rm">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Weather Route Map App">
+    <meta property="og:description" content="Plan your journey with weather integration">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://weather-route-map.netlify.app">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    
+    <title>Weather Route Map - Plan Your Journey</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -190,14 +206,11 @@
         </div>
     </div>
     <!-- Scripts -->
-    <!-- Environment Variables for Local Development -->
-    <script src="env-loader.js"></script>
     <!-- HERE Maps JS API -->
     <script type="text/javascript" src="https://js.api.here.com/v3/3.1/mapsjs-core.js"></script>
     <script type="text/javascript" src="https://js.api.here.com/v3/3.1/mapsjs-service.js"></script>
     <script src="https://js.api.here.com/v3/3.1/mapsjs-util.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="env-loader.js"></script>
     <script src="libs/flexpolyline.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/api-manager.js"></script>

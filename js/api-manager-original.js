@@ -186,94 +186,87 @@ class APIManager {
         return allCoords;
     }
     constructor() {
-        // Determine if we're in development or production
-        this.isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        
-        // Set base URL for API functions
-        this.FUNCTION_BASE_URL = this.isLocalDev 
-            ? 'http://localhost:8888/.netlify/functions'  // Netlify dev server
-            : '/.netlify/functions';  // Production Netlify
+        this.API_KEYS = {
+            mapbox: this.getEnvVariable('MAPBOX_API_KEY'),
+            opencage: this.getEnvVariable('OPENCAGE_API_KEY'),
+            here: this.getEnvVariable('HERE_API_KEY')
+        };
         
         this.API_ENDPOINTS = {
-            mapbox: `${this.FUNCTION_BASE_URL}/mapbox-api`,
-            opencage: `${this.FUNCTION_BASE_URL}/opencage-api`,
-            here: `${this.FUNCTION_BASE_URL}/here-api`,
-            openweather: `${this.FUNCTION_BASE_URL}/openweather-api`,
+            mapbox: {
+                suggest: 'https://api.mapbox.com/search/searchbox/v1/suggest',
+                retrieve: 'https://api.mapbox.com/search/searchbox/v1/retrieve'
+            },
             nominatim: {
                 search: 'https://nominatim.openstreetmap.org/search',
                 reverse: 'https://nominatim.openstreetmap.org/reverse'
+            },
+            opencage: {
+                geocode: 'https://api.opencagedata.com/geocode/v1/json'
+            },
+            here: {
+                routing: 'https://router.hereapi.com/v8/routes'
             }
         };
 
-        // Initialize HERE Maps Platform for polyline encoding/decoding (still needed for frontend)
+        // Initialize HERE Maps Platform for polyline encoding/decoding
         this.initializeHERE();
     }
-    /**
-     * Call Netlify Function with error handling
-     */
-    async callNetlifyFunction(functionName, payload) {
-        try {
-            const response = await fetch(this.API_ENDPOINTS[functionName], {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                throw new Error(`${functionName} API error: ${errorData.error || response.statusText}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error(`[APIManager] ${functionName} function error:`, error);
-            throw error;
-        }
-    }
-
 getEnvVariable(name) {
-    // This method is no longer needed as API keys are handled by Netlify Functions
-    console.warn(`[APIManager] getEnvVariable called for ${name} - API keys are now handled by backend functions`);
-    return null;
-}
+    // Check various places where env vars might be available
+    if (typeof process !== 'undefined' && process.env && process.env[name]) {
+      return process.env[name];
+    }
+    
+    // For browser environments using webpack DefinePlugin or similar
+    if (typeof window !== 'undefined' && window.ENV && window.ENV[name]) {
+      return window.ENV[name];
+    }
+    
+    // Check if it's available as a global variable
+    if (typeof window !== 'undefined' && window[name]) {
+      return window[name];
+    }
+    
+    throw new Error(`Environment variable ${name} is not defined. Please check your .env file or environment configuration.`);
+  }
     initializeHERE() {
         try {
             // Wait for HERE Maps JS API to be available
             if (typeof H !== 'undefined') {
-                // We no longer need the API key here since it's handled by the backend
-                // Just initialize the basic HERE platform for polyline encoding/decoding
-                console.log('[APIManager] HERE Maps JS API available for frontend operations');
+                this.herePlatform = new H.service.Platform({
+                    'apikey': this.API_KEYS.here
+                });
+                console.log('[APIManager] HERE Maps Platform initialized successfully');
             } else {
                 // Retry after a short delay if H is not yet available
                 setTimeout(() => this.initializeHERE(), 100);
             }
         } catch (error) {
-            console.warn('[APIManager] Failed to initialize HERE Maps JS API:', error);
+            console.warn('[APIManager] Failed to initialize HERE Maps Platform:', error);
         }
     }
     
     async searchMapbox(query) {
         try {
-            // Generate a session token if not provided
+            // Generate a session token if not provided (for demonstration, using a simple UUID)
             if (!this._sessionToken) {
                 this._sessionToken = self.crypto?.randomUUID?.() || Math.random().toString(36).substr(2, 16);
             }
-
-            const payload = {
-                endpoint: 'search/searchbox/v1/suggest',
-                queryParams: {
-                    q: query,
-                    session_token: this._sessionToken,
-                    limit: 5,
-                    language: 'da',
-                    country: 'DK'
-                }
-            };
-
-            const data = await this.callNetlifyFunction('mapbox', payload);
+            // Ensure spaces are encoded as %20 (encodeURIComponent does this by default)
+            const encodedQuery = encodeURIComponent(query);
+            const url = `${this.API_ENDPOINTS.mapbox.suggest}?` +
+                `q=${encodedQuery}&` +
+                `access_token=${this.API_KEYS.mapbox}&` +
+                `session_token=${this._sessionToken}&` +
+                `limit=5&` +
+                `language=da&` +
+                `country=DK`;
+            const response = await fetch(url);
             
+            if (!response.ok) throw new Error('Mapbox API error');
+            
+            const data = await response.json();
             return data.suggestions?.map(item => ({
                 id: item.mapbox_id,
                 name: item.name,
@@ -570,15 +563,12 @@ getEnvVariable(name) {
     
     async geocodeWithOpenCage(address) {
         try {
-            const payload = {
-                queryParams: {
-                    q: address,
-                    limit: '1'
-                }
-            };
-
-            const data = await this.callNetlifyFunction('opencage', payload);
+            const url = `${this.API_ENDPOINTS.opencage.geocode}?q=${encodeURIComponent(address)}&key=${this.API_KEYS.opencage}&limit=1`;
+            const response = await fetch(url);
             
+            if (!response.ok) throw new Error('OpenCage API error');
+            
+            const data = await response.json();
             if (data.results && data.results[0]) {
                 return {
                     lat: data.results[0].geometry.lat,
@@ -601,15 +591,12 @@ getEnvVariable(name) {
     async reverseGeocodeWithOpenCage(lat, lng) {
         try {
             console.log(`[APIManager] Reverse geocoding coordinates: ${lat}, ${lng}`);
+            const url = `${this.API_ENDPOINTS.opencage.geocode}?q=${lat}+${lng}&key=${this.API_KEYS.opencage}&limit=1`;
+            const response = await fetch(url);
             
-            const payload = {
-                queryParams: {
-                    q: `${lat}+${lng}`,
-                    limit: '1'
-                }
-            };
-
-            const data = await this.callNetlifyFunction('opencage', payload);
+            if (!response.ok) throw new Error('OpenCage API error');
+            
+            const data = await response.json();
             let locationName = '';
             let components = {};
             
@@ -865,23 +852,53 @@ getEnvVariable(name) {
                 routingMode = routeTypeMap[routeType] || 'fast';
             }
 
-            // Prepare payload for HERE API via Netlify Function
-            const payload = {
-                path: 'v8/routes',
-                queryParams: {
-                    origin: `${origin.lat},${origin.lng}`,
-                    destination: `${destination.lat},${destination.lng}`,
-                    transportMode: mode,
-                    routingMode: routingMode,
-                    alternatives: '3',
-                    return: 'polyline,summary,actions'
+            // Always request 3 alternative routes
+            const url = `${this.API_ENDPOINTS.here.routing}?` +
+                `origin=${origin.lat},${origin.lng}&` +
+                `destination=${destination.lat},${destination.lng}&` +
+                `transportMode=${mode}&` +
+                `routingMode=${routingMode}&` +
+                `alternatives=3&` +
+                `return=polyline,summary,actions&` +
+                `apiKey=${this.API_KEYS.here}`;
+            console.log('[HERE Routing API] Request URL:', url);
+            const response = await fetch(url);
+            console.log('[HERE Routing API] HTTP status:', response.status);
+
+            if (!response.ok) {
+                const text = await response.text();
+                let errorInfo = { title: 'Unknown error' };
+                try {
+                    errorInfo = JSON.parse(text);
+                } catch (e) {}
+                if (errorInfo.code === 'E605012' && routingMode !== 'fast') {
+                    const fallbackUrl = `${this.API_ENDPOINTS.here.routing}?` +
+                        `origin=${origin.lat},${origin.lng}&` +
+                        `destination=${destination.lat},${destination.lng}&` +
+                        `transportMode=${mode}&` +
+                        `routingMode=fast&` +
+                        `return=polyline,summary,actions&` +
+                        `apiKey=${this.API_KEYS.here}`;
+                    const fallbackResponse = await fetch(fallbackUrl);
+                    if (fallbackResponse.ok) {
+                        const fallbackData = await fallbackResponse.json();
+                        if (fallbackData.routes && fallbackData.routes.length > 0) {
+                            const route = fallbackData.routes[0];
+                            const section = route.sections[0];
+                            return {
+                                polyline: section.polyline,
+                                summary: section.summary,
+                                instructions: section.actions || [],
+                                distance: section.summary.length,
+                                duration: section.summary.duration
+                            };
+                        }
+                    }
                 }
-            };
+                throw new Error(`HERE API error: ${response.status} - ${errorInfo.title || 'Unknown error'}`);
+            }
 
-            console.log('[HERE Routing API] Request payload:', payload);
-            const data = await this.callNetlifyFunction('here', payload);
-            console.log('[HERE Routing API] Response received');
-
+            const data = await response.json();
             if (!data.routes || data.routes.length === 0) {
                 throw new Error('No route found');
             }
@@ -923,23 +940,25 @@ getEnvVariable(name) {
             
             console.log(`[HERE Transit API] Calculating transit route from ${origin.lat},${origin.lng} to ${destination.lat},${destination.lng} at ${formattedTime}`);
             
-            // Prepare payload for HERE Transit API via Netlify Function
-            const payload = {
-                path: 'v8/routes',
-                queryParams: {
-                    origin: `${origin.lat},${origin.lng}`,
-                    destination: `${destination.lat},${destination.lng}`,
-                    time: formattedTime,
-                    return: 'polyline'
-                },
-                isTransit: true  // Flag to use transit API endpoint
-            };
+            const url = `https://transit.router.hereapi.com/v8/routes?` +
+                `apiKey=${this.API_KEYS.here}&` +
+                `origin=${origin.lat},${origin.lng}&` +
+                `destination=${destination.lat},${destination.lng}&` +
+                `time=${formattedTime}&` +
+                `return=polyline`;
             
-            console.log('[HERE Transit API] Request payload:', payload);
+            console.log('[HERE Transit API] Request URL:', url);
             
-            // Note: We need to update the HERE function to handle both routing and transit
-            // For now, this will use the same HERE function but with different base URL
-            const data = await this.callNetlifyFunction('here', payload);
+            const response = await fetch(url);
+            console.log('[HERE Transit API] HTTP status:', response.status);
+
+            if (!response.ok) {
+                const text = await response.text();
+                console.error('[HERE Transit API] Error response:', text);
+                throw new Error(`HERE Transit API error: ${response.status}`);
+            }
+            
+            const data = await response.json();
             console.log('[HERE Transit API] Success response received:', data);
             
             if (!data.routes || data.routes.length === 0) {

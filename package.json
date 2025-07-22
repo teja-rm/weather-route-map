@@ -1,0 +1,30 @@
+{
+  "name": "weather-route-map",
+  "version": "1.0.0",
+  "description": "A route planning app with weather integration",
+  "main": "index.html",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'Static site - no build needed'",
+    "start": "netlify dev",
+    "test": "echo 'No tests specified'",
+    "deploy": "netlify deploy --prod",
+    "deploy:preview": "netlify deploy",
+    "functions:test": "netlify functions:serve",
+    "lint": "echo 'Linting not configured'",
+    "audit": "npm audit",
+    "clean": "rm -rf .netlify node_modules && npm install"
+  },
+  "keywords": ["route", "weather", "map", "navigation"],
+  "author": "teja-rm",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}
